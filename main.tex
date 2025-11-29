@@ -1,0 +1,132 @@
+\documentclass[a4paper, 12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{indentfirst}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{csquotes}
+\usepackage{hyperref}
+\usepackage{amsmath} % Pacote fundamental para matemática
+\usepackage{amsfonts} % Fontes matemáticas
+\usepackage{tikz}    % Para desenhar diagramas
+\usetikzlibrary{shapes, arrows, positioning}
+
+\geometry{left=3cm, top=3cm, right=2cm, bottom=2cm}
+
+\usepackage[style=abnt, backend=biber]{biblatex}
+\addbibresource{referencias.bib}
+
+\title{\textbf{Análise do Mecanismo de Detecção de Erros:\\Cyclic Redundancy Check (CRC)}}
+\author{Abigail Sayury Nakashima\\Miguel de Campos Rodrigues Moret}
+\date{28 de novembro de 2025}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+\tableofcontents
+\newpage
+
+\section{Introdução}
+
+A integridade dos dados é um dos pilares fundamentais das comunicações digitais. Durante a transmissão de informações através de meios físicos — sejam eles cabos de cobre, fibra óptica ou ondas de rádio — os sinais estão sujeitos a ruídos, atenuações e interferências eletromagnéticas. Esses fenômenos podem alterar o estado dos bits transmitidos, corrompendo a mensagem original.
+
+O \textit{Cyclic Redundancy Check} (CRC), ou Verificação Cíclica de Redundância, destaca-se como um dos mecanismos mais robustos e amplamente utilizados para mitigar esse problema. Diferente de métodos simples de soma (checksums), o CRC fundamenta-se na teoria de anéis polinomiais, tratando os dados como coeficientes de um polinômio. Este artigo explora o funcionamento matemático do CRC, sua implementação no padrão Ethernet e sua eficácia estatística.
+
+\section{Fundamentos Teóricos}
+
+O princípio fundamental de qualquer mecanismo de detecção de erros é a redundância: o envio de dados adicionais calculados a partir da mensagem original.
+
+\subsection{Limitações da Paridade Simples}
+
+Historicamente, a paridade foi a primeira técnica empregada. Ela consiste na adição de um único bit ao final de um byte para garantir que o número total de bits com valor '1' seja par (paridade par) ou ímpar (paridade ímpar).
+
+Apesar de sua simplicidade computacional, a paridade possui uma falha crítica: ela detecta apenas erros em um número ímpar de bits. Se dois bits forem invertidos simultaneamente por um ruído (o que é comum em surtos de interferência), a paridade se manterá "correta", e o erro passará despercebido. Essa limitação exigiu o desenvolvimento de métodos mais sofisticados, como o CRC.
+
+\subsection{Aritmética Polinomial e Módulo 2}
+
+O CRC baseia-se na aritmética de módulo 2, onde não há "vai-um" (carry) na adição ou "empresta-um" (borrow) na subtração. Nesse sistema, tanto a adição quanto a subtração são equivalentes à operação lógica \textbf{XOR} (OU exclusivo).
+
+Se considerarmos uma mensagem como um polinômio $M(x)$, onde os bits são os coeficientes, a geração do código CRC envolve a divisão deste polinômio por um polinômio gerador $G(x)$ fixo e conhecido por ambas as partes (transmissor e receptor).
+
+A relação matemática fundamental é expressa por:
+\begin{equation}
+    M(x) \cdot x^n = Q(x) \cdot G(x) + R(x)
+\end{equation}
+Onde:
+\begin{itemize}
+    \item $M(x)$ é o polinômio dos dados originais.
+    \item $x^n$ representa o deslocamento dos dados para abrir espaço para o CRC (onde $n$ é o grau de $G(x)$).
+    \item $R(x)$ é o resto da divisão, que se tornará o valor do CRC (FCS).
+\end{itemize}
+
+\section{O Processo de Verificação (CRC-32)}
+
+No contexto de redes modernas, como o protocolo Ethernet (IEEE 802.3), utiliza-se o CRC-32. A integridade do quadro é garantida pelo campo FCS (\textit{Frame Check Sequence}), que ocupa os últimos 4 bytes do quadro.
+
+\subsection{Polinômio Gerador}
+
+O padrão Ethernet utiliza um polinômio gerador de grau 32. O valor hexadecimal frequentemente citado \texttt{0x04C11DB7} representa os coeficientes desse polinômio. Formalmente, a equação que rege a verificação no Ethernet é:
+
+\begin{equation}
+    G(x) = x^{32} + x^{26} + x^{23} + x^{22} + x^{16} + x^{12} + x^{11} + x^{10} + x^8 + x^7 + x^5 + x^4 + x^2 + x^1 + 1
+\end{equation}
+
+Essa distribuição específica de expoentes não é aleatória; ela foi projetada matematicamente para maximizar a detecção de tipos específicos de erros comuns em meios de transmissão.
+
+\subsection{Fluxo de Processamento}
+
+Para visualizar o processo, apresentamos o diagrama lógico simplificado da geração e verificação:
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}[node distance = 2cm, auto]
+        % Estilos
+        \tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=5em, text centered, rounded corners, minimum height=3em]
+        \tikzstyle{line} = [draw, -latex']
+        \tikzstyle{cloud} = [draw, ellipse, fill=red!20, node distance=3cm, minimum height=2em]
+        
+        % Nós
+        \node [block] (sender) {Dados Originais};
+        \node [block, right of=sender, node distance=4cm] (calc) {Cálculo CRC (Divisão)};
+        \node [block, right of=calc, node distance=4cm] (frame) {Dados + FCS};
+        \node [cloud, below of=frame] (channel) {Meio Ruidoso};
+        \node [block, below of=channel] (receiver) {Receptor (Recálculo)};
+        \node [block, left of=receiver, node distance=4cm] (decision) {Verificação Resto = 0?};
+        
+        % Linhas
+        \path [line] (sender) -- (calc);
+        \path [line] (calc) -- (frame);
+        \path [line] (frame) -- (channel);
+        \path [line] (channel) -- (receiver);
+        \path [line] (receiver) -- (decision);
+    \end{tikzpicture}
+    \caption{Fluxo lógico da verificação CRC.}
+\end{figure}
+
+Ao receber o quadro, a placa de rede divide a mensagem inteira (Dados + FCS recebido) pelo mesmo $G(x)$. Devido às propriedades do módulo 2, se a transmissão for íntegra, o resto dessa divisão deve ser zero (ou um valor constante predefinido, dependendo da implementação).
+
+\section{Eficiência e Confiabilidade}
+
+A robustez do CRC-32 é estatisticamente comprovada para os cenários de rede:
+
+\begin{itemize}
+    \item \textbf{Erros de Bit Único:} Detecta 100\% dos erros onde apenas um bit foi invertido.
+    \item \textbf{Erros de Bit Duplo:} Detecta 100\% dos erros em dois bits, desde que a distância entre eles não exceda o comprimento do quadro.
+    \item \textbf{Erros de Rajada (\textit{Burst Errors}):} Uma "rajada" ocorre quando vários bits consecutivos são corrompidos. O CRC-32 detecta com 100\% de certeza qualquer rajada de comprimento menor ou igual a 32 bits.
+    \item \textbf{Probabilidade de Colisão:} Para rajadas maiores que 32 bits, a probabilidade de um erro passar despercebido é de apenas $1/2^{32}$, ou seja, aproximadamente 1 em 4 bilhões.
+\end{itemize}
+
+\section{Conclusão}
+
+O Cyclic Redundancy Check representa um equilíbrio ideal entre custo computacional e segurança de dados. Embora não possua capacidade de correção de erros (como os códigos de Hamming ou Reed-Solomon), sua capacidade de detecção é excepcionalmente alta com um overhead (custo de processamento) muito baixo, pois é facilmente implementado em hardware através de registradores de deslocamento.
+
+Essa eficiência torna o CRC a escolha padrão não apenas para Ethernet, mas também para protocolos como USB, SATA e redes Wi-Fi, garantindo que a informação recebida seja, de fato, a informação enviada.
+
+\nocite{*}
+\printbibliography
+
+\end{document}
