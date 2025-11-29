@@ -79,7 +79,7 @@ def parte_fcs(fcs):
             recv_val = int(recv, 16)
         else:
             if re.fullmatch(r'[0-9a-fA-F]{1,8}', recv):
-                recv_val = int(recv_val, 16)
+                recv_val = int(recv, 16)
             else:
                 recv_val = int(recv, 10)
     except ValueError:
